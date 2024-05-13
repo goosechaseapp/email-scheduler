@@ -2,7 +2,10 @@ module goosechase.ai/email-scheduler
 
 go 1.22.0
 
-require github.com/jackc/pgx/v5 v5.5.5
+require (
+	github.com/jackc/pgx/v5 v5.5.5
+	google.golang.org/protobuf v1.34.1
+)
 
 require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
