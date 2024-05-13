@@ -52,6 +52,6 @@ func main() {
 			panic(err)
 		}
 
-		services.Kafka.ProduceEmail(email)
+		services.Kafka.ProduceEmail(&emailMessage)
 	}
 }

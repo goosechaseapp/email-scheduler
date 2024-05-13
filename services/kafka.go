@@ -8,6 +8,7 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry/serde"
 	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry/serde/protobuf"
 	"goosechase.ai/email-scheduler/config"
+	"goosechase.ai/email-scheduler/proto/proto"
 	"goosechase.ai/email-scheduler/util/log"
 )
 
@@ -73,9 +74,16 @@ func (k *kafkaInstance) produce(topic string, payload []byte) {
 	close(deliveryChan)
 }
 
-func (k *kafkaInstance) ProduceEmail(email []byte) {
+func (k *kafkaInstance) ProduceEmail(email *proto.SendEmailDocument) {
 	topic := "send-email" // TODO: Get from env
-	k.produce(topic, email)
+
+	payload, err := k.serializer.Serialize(topic, email)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to serialize email")
+		return
+	}
+
+	k.produce(topic, payload)
 }
 
 func (k *kafkaInstance) Close() {
