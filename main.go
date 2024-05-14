@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	pb "google.golang.org/protobuf/proto"
 	"goosechase.ai/email-scheduler/config"
@@ -13,6 +13,8 @@ import (
 )
 
 func main() {
+	log.Initialize()
+
 	err := godotenv.Load()
 	if err != nil {
 		log.Warn().Err(err).Msg("Failed to load .env file")
@@ -21,17 +23,25 @@ func main() {
 	ctx := context.Background()
 
 	// Initialize Postgres connection
-	conn, err := pgx.Connect(ctx, config.Env("DB_URL"))
+	conn, err := pgxpool.New(ctx, config.Env("DB_URL"))
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to connect to database")
 	}
+
+	defer conn.Close()
+
+	log.Info().Msg("Connected to database")
 
 	if err := conn.Ping(ctx); err != nil {
 		log.Fatal().Err(err).Msg("Failed to ping database")
 	}
 
+	log.Info().Msg("Pinged database")
+
 	// Initialize Kafka
 	services.Kafka.InitializeConfluentKafka()
+
+	log.Info().Msg("Initialized Kafka")
 
 	// query rows
 	rows, err := conn.Query(ctx, "SELECT id, msg FROM scheduled_emails WHERE scheduled_at < now() AND is_sent = FALSE")
@@ -39,6 +49,8 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to query rows")
 	}
+
+	log.Info().Msg("Queried rows")
 
 	defer rows.Close()
 
@@ -64,6 +76,17 @@ func main() {
 			continue
 		}
 
-		services.Kafka.ProduceEmail(&emailMessage)
+		err = services.Kafka.ProduceEmail(&emailMessage)
+		if err != nil {
+			log.Error().Err(err).Msg("Job ID " + id + " failed to produce email")
+			continue
+		}
+
+		// set is_sent to true
+		_, err = conn.Exec(ctx, "UPDATE scheduled_emails SET is_sent = TRUE, sent_at = now() where ID=$1 ", id)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to update is_sent id " + id)
+			continue
+		}
 	}
 }
