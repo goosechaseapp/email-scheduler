@@ -75,7 +75,7 @@ func (k *kafkaInstance) produce(topic string, payload []byte) {
 }
 
 func (k *kafkaInstance) ProduceEmail(email *proto.SendEmailDocument) {
-	topic := "send-email" // TODO: Get from env
+	topic := config.Env("KAFKA_TOPIC")
 
 	payload, err := k.serializer.Serialize(topic, email)
 	if err != nil {
